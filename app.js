@@ -8,13 +8,21 @@ const jwt = require("jsonwebtoken");
 const auth = require("./middleware/auth");
 const usertest = require("./models/usertest");
 var cors = require("cors");
+const fileUpload = require("express-fileupload");
+const cloudinary = require("./cloudnary");
+const axios = require("axios");
 
 //creating the server
 app = express();
 
 //adding the json middleware
 app.use(express.json());
-
+app.use(
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: "/tmp/",
+  })
+);
 var coroptions = {
   "Access-Control-Allow-Origin": "*",
 
@@ -38,7 +46,8 @@ app.post("/register", async (req, res) => {
   try {
     //Getting the information from the user
 
-    const { email, password } = req.body;
+    const { email, password, city, area, pincode, hostelname, pricestarts } =
+      req.body;
 
     // checking wheather fields are there or not in requested body
 
@@ -61,6 +70,11 @@ app.post("/register", async (req, res) => {
     const cuser = await usertest.create({
       email: email.toLowerCase(),
       password: encryptedpassword,
+      city: city,
+      area: area,
+      pincode: pincode,
+      hostelname: hostelname,
+      pricestarts: pricestarts,
     });
 
     //creating or signing the jwt token
@@ -430,6 +444,139 @@ app.post("/getthehome", async (req, res) => {
         mainresult.push(flrobj);
       }
       res.status(200).send(mainresult);
+    }
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.post("/uploadamenities", async (req, res) => {
+  try {
+    const datatoclodinary = req.files.image;
+    const id = req.body.userid;
+    console.log(datatoclodinary);
+    for (let i in datatoclodinary) {
+      console.log(datatoclodinary[i].tempFilePath);
+      const result = await cloudinary.uploader.upload(
+        datatoclodinary[i].tempFilePath,
+        {
+          folder: `amenities/${id}`,
+          width: 500,
+          height: 500,
+          crop: "fill",
+        }
+      );
+      console.log(result);
+    }
+    res.status(200).send("done");
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.post("/getareas", async (req, res) => {
+  const area = req.body.area;
+  console.log(area);
+  try {
+    const areas = await usertest.find({ area });
+    var datatosend = [];
+    for (let i in areas) {
+      var datatoadd = [];
+      availablebeds = 0;
+      const id = areas[i]._id;
+      harea = areas[i].area;
+      hname = areas[i].hostelname;
+      hpricestarts = areas[i].pricestarts;
+      if (areas[i].floors.length > 0) {
+        for (let j in areas[i].floors) {
+          if (areas[i].floors[j].rooms.length > 0) {
+            for (let k in areas[i].floors[j].rooms) {
+              if (areas[i].floors[j].rooms[k].capacity) {
+                availablebeds =
+                  areas[i].floors[j].rooms[k].capacity + availablebeds;
+              }
+            }
+          }
+        }
+      }
+      const result = await cloudinary.search
+        .expression(`folder:amenities/${id}`)
+        .execute();
+      console.log(result.resources);
+      result.resources.map((item) => {
+        datatoadd.push(item.secure_url);
+      });
+      datatosend.push({
+        id: id,
+        hostelname: hname,
+        area: harea,
+        pricestarts: hpricestarts,
+        availablebeds: availablebeds,
+        images: datatoadd,
+      });
+    }
+    console.log(datatosend);
+    res.status(200).send(datatosend);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.post("/getimages", async (req, res) => {
+  const userid = req.body.id;
+  const datatosend = [];
+  try {
+    const result = await cloudinary.search
+      .expression(`folder:amenities/${userid}`)
+      .execute();
+    console.log(result.resources);
+    result.resources.map((item) => {
+      datatosend.push(item.secure_url);
+    });
+    res.status(200).send(datatosend);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.post("/requestforhostel", async (req, res) => {
+  const { name, phno, dts, id } = req.body;
+  try {
+    const user = await usertest.findById(id);
+    const datatoadd = {
+      name: name,
+      phno: phno,
+      dts: dts,
+    };
+    if (user) {
+      console.log(datatoadd, id);
+      const responce = await usertest.updateOne(
+        {
+          _id: id,
+        },
+        {
+          $push: {
+            requests: datatoadd,
+          },
+        }
+      );
+      if (responce.acknowledged) {
+        res.status(200).send("done");
+      } else {
+        res.status(500).send("error in adding request");
+      }
+    }
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.post("/getrequests", async (req, res) => {
+  const { id } = req.body;
+  try {
+    const user = await usertest.findById(id);
+    if (user) {
+      res.status(200).send(user.requests);
     }
   } catch (error) {
     console.log(error);

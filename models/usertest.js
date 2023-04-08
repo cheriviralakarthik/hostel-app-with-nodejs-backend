@@ -41,6 +41,21 @@ const floorSchema = new mongoose.Schema({
   },
   rooms: [roomSchema],
 });
+
+const requestSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  phno: {
+    type: Number,
+    required: true,
+  },
+  dts: {
+    type: Number,
+    required: true,
+  },
+});
 const usertest = new mongoose.Schema({
   name: String,
   email: {
@@ -52,6 +67,27 @@ const usertest = new mongoose.Schema({
     type: String,
     required: true,
   },
+  city: {
+    type: String,
+    required: true,
+  },
+  area: {
+    type: String,
+    required: true,
+  },
+  pincode: {
+    type: Number,
+    required: true,
+  },
+  hostelname: {
+    type: String,
+    required: true,
+  },
+  pricestarts: {
+    type: Number,
+    required: true,
+  },
+  requests: [requestSchema],
   floors: [floorSchema],
 });
 
